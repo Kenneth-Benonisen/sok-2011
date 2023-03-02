@@ -198,7 +198,7 @@ df_rest0<-WDI(
 )
 
 
-df_rest0<-df_rest0 %>% mutate_all(na_if,"")
+#df_rest0<-df_rest0 %>% mutate_all(na_if,"") # feilmelding på koden. kommentert ut. 
 df_rest <- df_rest0[complete.cases( df_rest0$iso3c),]  %>%  arrange(iso2c) 
 
 
