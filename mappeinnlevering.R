@@ -235,7 +235,7 @@ df_growth0 = df_all %>%
         avg_p=mean(p, na.rm = TRUE))  # Gjennomsnittlig årlig vekstrate i befolkningen for hvert land  i perioden
 
 # View(df_growth0)
-df_growth0 <-  df_growth0 %>% mutate_all(na_if,"") 
+# df_growth0 <-  df_growth0 %>% mutate_all(na_if,"") # kommentert ut pga. error ved bruk av funksjonen. 
 df_growth <- df_growth0[complete.cases( df_growth0$country, df_growth0$income, df_growth0$iso3c, df_growth0$avg_gdpgrowth, df_growth0$gdppc0, df_growth0$avg_n, df_growth0$avg_p, df_growth0$avg_nsy, df_growth0$avg_nry,df_growth0$avg_gi, df_growth0$avg_gx, df_growth0$avg_educ),] # Ta vekk land som mangler data 
 
 
@@ -251,7 +251,7 @@ head(df_growth2019)
 
 
 # Lag en variabel som er logaritmen av BNP per innbygger (enklere tolkning og presser sammen fordelingen)
-df_growth2019$dppc <-as.numeric(df_growth2019$gdppc)
+df_growth2019$gdppc <-as.numeric(df_growth2019$gdppc)
 df_growth2019$ln_gdppc<-log(df_growth2019$gdppc) 
 df_growth2019$ln_gdppc0<-log(df_growth2019$gdppc0) 
 
@@ -310,7 +310,7 @@ labs <- c("Gjennomsnitlig årlig vekstrate i BNP pc 2000-2019 (%)",
           "Logaritmisk vekstrate for BNP pc (2000)") 
 
 # Lag tabellen
-st(table_df_growth2019, labels=labs,
+st(table_df_growth2019, labels=labs, title = "Summary statistics with outliers",
    summ = list(
      c('notNA(x)','mean(x)','sd(x)','min(x)','max(x)'), # Beskriv hvilken statistikk du ønsker å vise
      c('notNA(x)','mean(x)')
@@ -346,13 +346,13 @@ labs <- c("Gjennomsnitlig årlig vekstrate i BNP pc 2000-2019 (%)",
           "Logaritmisk vekstrate for BNP pc (2000)") 
 
 # Lag tabellen
-st(table_df_no_outliers, labels=labs,
+st(table_df_no_outliers, labels=labs, title = "Summary statistics without outliers",
    summ = list(
-     c('notNA(x)','mean(x)','sd(x)','min(x)','max(x)'), # Beskriv hvilken statistikk du ønsker å vise
+     c('notNA(x)','mean(x)','sd(x)','min(x)','max(x)'),
      c('notNA(x)','mean(x)')
    ),
    summ.names = list(
-     c('N','Gjennomsnitt','SD','Min','Maks') # Gi navn til kolumnene
+     c('N','Gjennomsnitt','SD','Min','Maks') 
    ))
 
 
@@ -376,47 +376,45 @@ plot1
 
 
 plot2 <- ggplot(df_growth2019_n, aes(avg_nsy, ln_gdppc, na.rm = T)) +
-  xlab("Netto-sparing") + # Beskrivelse for x-akselen
-  ylab("BNP per innbygger 2019") + # Beskrivelse for y-akselen
-  theme_classic(base_size = 14) + # Tekststørrelse
-  geom_point(aes(size = poptot, color = region), alpha = 0.8) + # Størrelse (farge) på bobblene avhenger befolkningsstørrelse (region)
-  scale_size_area(guide = "none", max_size = 14) + #Ta vekk legend for befolkningsstørrelse
-  scale_y_continuous(trans = 'log2', breaks=c(0)) + # logaritmere BNP pc og hvilke "ticks" som skal vises
-  scale_x_continuous(breaks=c(seq(-10,30,5))) #  "ticks" som skal vises på x-akselen
+  xlab("Netto-sparing") + 
+  ylab("BNP per innbygger 2019") + 
+  theme_classic(base_size = 14) + 
+  geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  scale_size_area(guide = "none", max_size = 14) + 
+  scale_y_continuous(trans = 'log2', breaks=c(0)) + 
+  scale_x_continuous(breaks=c(seq(-10,30,5)))   
 plot2
 
 
 plot3 <- ggplot(df_growth2019_n, aes(avg_educ, ln_gdppc, na.rm = T)) +
-  xlab("Humankapital (år på skolen)") + # Beskrivelse for x-akselen
-  ylab("BNP per innbygger 2019") + # Beskrivelse for y-akselen
-  theme_classic(base_size = 14) + # Tekststørrelse
-  geom_point(aes(size = poptot, color = region), alpha = 0.8) + # Størrelse (farge) på bobblene avhenger befolkningsstørrelse (region)
-  scale_size_area(guide = "none", max_size = 14) + #Ta vekk legend for befolkningsstørrelse
-  scale_y_continuous(trans = 'log2', breaks=c(0)) + # logaritmere BNP pc og hvilke "ticks" som skal vises
-  scale_x_continuous(breaks=c(seq(0,15,3))) #  "ticks" som skal vises på x-akselen
+  xlab("Humankapital (år på skolen)") + 
+  ylab("BNP per innbygger 2019") + 
+  theme_classic(base_size = 14) + 
+  geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  scale_size_area(guide = "none", max_size = 14) + 
+  scale_y_continuous(trans = 'log2', breaks=c(0)) + 
+  scale_x_continuous(breaks=c(seq(0,15,3))) 
 plot3
 
 
 plot4 <- ggplot(df_growth2019_n, aes(avg_nsy, avg_gdpgrowth, na.rm = T)) +
-  xlab("Netto-sparing") + # Beskrivelse for x-akselen
-  ylab("Årlig vesktrate i BNP") + # Beskrivelse for y-akselen
-  theme_classic(base_size = 14) + # Tekststørrelse
-  geom_point(aes(size = poptot, color = region), alpha = 0.8) + # Størrelse (farge) på bobblene avhenger befolkningsstørrelse (region)
-  scale_size_area(guide = "none", max_size = 14) + #Ta vekk legend for befolkningsstørrelse
-  scale_y_continuous(trans = 'log2', breaks=c(0)) + # logaritmere BNP pc og hvilke "ticks" som skal vises
-  scale_x_continuous(breaks=c(seq(-10,30,5))) #  "ticks" som skal vises på x-akselen
+  xlab("Netto-sparing") + 
+  ylab("Årlig vesktrate i BNP") + 
+  theme_classic(base_size = 14) + 
+  geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  scale_size_area(guide = "none", max_size = 14) + 
+  scale_y_continuous(trans = 'log2', breaks=c(0)) + 
+  scale_x_continuous(breaks=c(seq(-10,30,5))) 
 plot4
 
 
 plot5 <- ggplot(df_growth2019_n, aes(avg_educ, avg_gdpgrowth, na.rm = T)) +
-  xlab("Humankapital (år på skolen)") + # Beskrivelse for x-akselen
-  ylab("Årlig vesktrate i BNP") + # Beskrivelse for y-akselen
-  theme_classic(base_size = 14) + # Tekststørrelse
-  geom_point(aes(size = poptot, color = region), alpha = 0.8) + # Størrelse (farge) på bobblene avhenger befolkningsstørrelse (region)
-  scale_size_area(guide = "none", max_size = 14) + #Ta vekk legend for befolkningsstørrelse
-  scale_y_continuous(trans = 'log2', breaks=c(30)) # logaritmere BNP pc og hvilke "ticks" som skal vises
+  xlab("Humankapital (år på skolen)") + 
+  ylab("Årlig vesktrate i BNP") + 
+  theme_classic(base_size = 14) + 
+  geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  scale_size_area(guide = "none", max_size = 14) + 
+  scale_y_continuous(trans = 'log2', breaks=c(30)) 
 plot5
-
-
 
 
