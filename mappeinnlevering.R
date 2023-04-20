@@ -8,6 +8,10 @@ library(countrycode)
 library(vtable)
 library(scales)
 
+library(sjPlot)
+library(sjmisc)
+library(sjlabelled)
+
 # Kode for a kunne bruke norske bokstaver
 Sys.setlocale(locale="no_NO")
 
@@ -188,7 +192,12 @@ df <- df  %>%  filter(iso2c!='1A' & iso2c !='1W' & iso2c != '4E' & iso2c != '7E'
 
 df_rest0<-WDI(
   country = "all",
-  indicator = c('poptot'="SP.POP.TOTL", 'gi'="NE.GDI.FTOT.KD.ZG", 'gx'="NE.EXP.GNFS.KD.ZG", 'nry'="NY.ADJ.DRES.GN.ZS", 'p'="SP.POP.GROW" ),  
+  indicator = c('poptot'="SP.POP.TOTL", 
+                'gi'="NE.GDI.FTOT.KD.ZG", 
+                'gx'="NE.EXP.GNFS.KD.ZG", 
+                'nry'="NY.ADJ.DRES.GN.ZS", 
+                'p'="SP.POP.GROW",
+                "gni_ppp" = "NY.GNP.MKTP.PP.CD"),  
   start = 2000,
   end = 2019,
   extra = TRUE,
@@ -196,6 +205,12 @@ df_rest0<-WDI(
   latest = NULL,
   language = "en"
 )
+
+# Analysedel til resultat  -----------------------------------------------------
+# avg_nry = Gjennomsnittlig årlig vekstrate (negativ) i naturressurser for hvert land
+# avg_gi = Gjennomsnittlig årlig vekstrate i investeringer for hvert land
+# avg_p = Gjennomsnittlig årlig vekstrate i befolkningen for hvert land
+# avg_gx = Gjennomsnittlig årlig vekstrate i eksport for hvert land
 
 
 #df_rest0<-df_rest0 %>% mutate_all(na_if,"") # feilmelding på koden. kommentert ut. 
@@ -212,11 +227,14 @@ df_rest <- df_rest  %>%  filter(iso2c!='1A' & iso2c !='1W' & iso2c != '4E' & iso
                                 & iso2c !='Z7' & iso2c !='ZF'& iso2c !='ZG'  & iso2c !='ZH' & iso2c !='ZI'  & iso2c !='ZJ'  & iso2c !='ZQ'  
                                 & iso2c !='ZT'  & iso2c !='Z7')  %>% arrange(iso3c, year) 
 
-df_rest <- subset(df_rest, select = c("country", "region", "income", "iso3c", "iso2c", "year", "poptot", "p", "nry", "gi", "gx"))
+df_rest <- subset(df_rest, select = c("country", "region", "income", "iso3c", "iso2c", "year", "poptot", "p", "nry", "gi", "gx", "gni_ppp"))
 df_all <- left_join(df, df_rest, by=c("country", "region", "income", "iso2c", "iso3c", "year"))
 
+# korrigerer feilmelding angående kolonnen til poptot
+df_all <- df_all %>%  rename_at("poptot.x", ~ "poptot")
+
 # Lag en rekkefølge til variablene slik at det er enklere å få en oversikt over datamaterialet.
-col_order <- c("country",  "region", "income", "iso3c", "iso2c", "year", "gdppc", "gdppc0", "poptot", "p", "avg_n", "avg_nsy", "nry", "gi", "gx", "avg_educ")
+col_order <- c("country",  "region", "income", "iso3c", "iso2c", "year", "gdppc", "gdppc0", "poptot", "p", "avg_n", "avg_nsy", "nry", "gi", "gx", "avg_educ", "gni_ppp")
 df_all <- df_all[, col_order]
 
 
@@ -232,7 +250,9 @@ df_growth0 = df_all %>%
         avg_gi=mean(gi, na.rm = TRUE), # Gjennomsnittlig årlig vekstrate i investeringer for hvert land  i perioden
         avg_nry=mean(nry, na.rm = TRUE),  # Gjennomsnittlig årlig vekstrate (negativ) i naturressurser for hvert land  i perioden
         avg_gx=mean(gx, na.rm = TRUE),  # Gjennomsnittlig årlig vekstrate i eksport for hvert land  i perioden
-        avg_p=mean(p, na.rm = TRUE))  # Gjennomsnittlig årlig vekstrate i befolkningen for hvert land  i perioden
+        avg_p=mean(p, na.rm = TRUE), # Gjennomsnittlig årlig vekstrate i befolkningen for hvert land  i perioden
+        gni_pc = gni_ppp / poptot # henter frem GNI per capita 
+        )  
 
 # View(df_growth0)
 # df_growth0 <-  df_growth0 %>% mutate_all(na_if,"") # kommentert ut pga. error ved bruk av funksjonen. 
@@ -260,11 +280,11 @@ df_growth2019$ln_gdppc0<-log(df_growth2019$gdppc0)
 # Analysedel til resultat  -----------------------------------------------------
 
 # avg_gdpgrowth = Gjennomsnittlig årlig vekstrate i BNP per innbygger for hvert land i perioden
-# avg_nsy = gj.snitt netto-sparing
-# avg_educ = gj. humankapital (år i skole)
+# avg_nsy = Gjennomsnittlig netto-sparing
+# avg_educ = Gjennomsnittlig humankapital (år i skole)
 # avg_nry = Gjennomsnittlig årlig vekstrate (negativ) i naturressurser for hvert land
 # avg_gi = Gjennomsnittlig årlig vekstrate i investeringer for hvert land
-# avg_n = gj.snitt vekstrate i arbeidskraft.
+# avg_n = Gjennomsnittlig vekstrate i arbeidskraft.
 # avg_p = Gjennomsnittlig årlig vekstrate i befolkningen for hvert land
 # avg_gx = Gjennomsnittlig årlig vekstrate i eksport for hvert land
 # ln_gdppc0 = log bnp for 2000. 
@@ -285,18 +305,20 @@ dim(no_outliers)
 
 # Analyse av data.
 # +1 perfekt positiv lineær relasjon, -1 perfekt negativ lineær relasjon, 0 ingen relasjon.
-cor_df_growth2019 <- cor(df_growth2019[c("ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "avg_gx", "ln_gdppc0")])
-cor_BNP_growth2019 <- cor_df_growth2019[1,2:9]
+cor_df_growth2019 <- cor(df_growth2019[c("ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "ln_gdppc0")])
+cor_BNP_growth2019 <- cor_df_growth2019[1,2:8]
 print(round(cor_BNP_growth2019,4))
 
+
+
 # regresjon
-regresjon_df_growth2019 <- lm(ln_gdppc ~ avg_nsy + avg_educ + avg_nry + avg_gi + avg_n + avg_p + avg_gx + ln_gdppc0, data = df_growth2019)
+regresjon_df_growth2019 <- lm(ln_gdppc ~ avg_nsy + avg_educ + avg_nry + avg_gi + avg_n + avg_p + ln_gdppc0, data = df_growth2019)
 summary(regresjon_df_growth2019)
 
 
 
 # Velg ut de variabler du vil ha med i tabellen. Her er et eksempel (du skal ta med alle variabler som du har med i den empiriske analysen)
-table_df_growth2019 <- subset(df_growth2019, select = c("avg_gdpgrowth","ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "avg_gx", "ln_gdppc0"))
+table_df_growth2019 <- subset(df_growth2019, select = c("avg_gdpgrowth","ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "ln_gdppc0"))
 # Gi beskrivende navn til variablene (i samme rekkefølge som de ligger i datasettet) # pc = per capita
 labs <- c("Gjennomsnitlig årlig vekstrate i BNP pc 2000-2019 (%)",
           "Logaritmisk vekstrate for BNP pc (2019)",
@@ -306,7 +328,6 @@ labs <- c("Gjennomsnitlig årlig vekstrate i BNP pc 2000-2019 (%)",
           "Gjennomsnittlig årlig vekstrate i investeringer",
           "Gjennomsnittlig vekstrate i arbeidskraft",
           "Gjennomsnittlig årlig befolkningsvekst (%)",
-          "Gjennomsnittlig årlig vekstrate i eksport",
           "Logaritmisk vekstrate for BNP pc (2000)") 
 
 # Lag tabellen
@@ -323,30 +344,74 @@ st(table_df_growth2019, labels=labs, title = "Summary statistics with outliers",
 
 
 # Analyse av data uten ekstremobservasjoner. 
-cor_df_no_outliers <- cor(no_outliers[c("ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "avg_gx", "ln_gdppc0")])
-cor_BNP_no_outliers <- cor_df_no_outliers[1,2:9]
+# +1 perfekt positiv lineær relasjon, -1 perfekt negativ lineær relasjon, 0 ingen relasjon.
+cor_df_no_outliers <- cor(no_outliers[c("ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "ln_gdppc0")])
+cor_BNP_no_outliers <- cor_df_no_outliers[1,2:8]
 print(round(cor_BNP_no_outliers,4))
 
 # regresjon
 regresjon_no_outliers <- lm(ln_gdppc ~ avg_nsy + avg_educ + avg_nry + avg_gi + avg_n + avg_p + avg_gx + ln_gdppc0, data = no_outliers)
 summary(regresjon_no_outliers)
 
+tab_model(regresjon_no_outliers,
+          pred.labels = c("Intercept", 
+                          "Gjennomsnittlig netto-sparing",
+                          "Gjennomsnittlig humankapital",
+                          "Gjennomsnittlig naturressurser (negativ)",
+                          "Gjennomsnittlig investering",
+                          "Gjennomsnittlig arbeidskraft",
+                          "Gjennomsnittlig befolkning",
+                          "Gjennomsnittlig vekstrate eksport",
+                          "Logaritmisk vekstrate for BNP pc (2000)"),
+          dv.labels = c("Logaritmisk vekstrate for BNP pc (2019)"),
+          string.pred = "Coeffcients",
+          string.p = " P-value",
+          string.stat = "t-value",
+          show.se = T,
+          show.ci = F,
+          show.stat = T
+          )
+
+
+
+# regresjon
+test <- lm(avg_gdpgrowth ~ avg_nsy + avg_educ + avg_nry + avg_gi + avg_n + avg_p + avg_gx, data = no_outliers)
+summary(test)
+
+tab_model(test,
+          pred.labels = c("Intercept", 
+                          "Gjennomsnittlig aarlig vekstrate netto-sparing",
+                          "Gjennomsnittlig aarlig vekstrate humankapital",
+                          "Gjennomsnittlig aarlig vekstrate naturressurser (negativ)",
+                          "Gjennomsnittlig aarlig vekstrate investering",
+                          "Gjennomsnittlig aarlig vekstrate arbeidskraft",
+                          "Gjennomsnittlig aarlig vekstrate befolkning",
+                          "Gjennomsnittlig aarlig vekstrate eksport"),
+          dv.labels = c("Gjennomsnittlig aarlig vekstrate for BNP"),
+          string.pred = "Coeffcients",
+          string.p = " P-value",
+          string.stat = "t-value",
+          show.se = T,
+          show.ci = F,
+          show.stat = T
+)
+
+
 # Velg ut de variabler du vil ha med i tabellen. Her er et eksempel (du skal ta med alle variabler som du har med i den empiriske analysen)
-table_df_no_outliers <- subset(no_outliers, select = c("avg_gdpgrowth","ln_gdppc", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p", "avg_gx", "ln_gdppc0"))
+table_df_no_outliers <- subset(no_outliers, select = c("avg_gdpgrowth","ln_gdppc", "ln_gdppc0", "avg_nsy", "avg_educ", "avg_nry", "avg_gi", "avg_n", "avg_p"))
 # Gi beskrivende navn til variablene (i samme rekkefølge som de ligger i datasettet) # pc = per capita
-labs <- c("Gjennomsnitlig årlig vekstrate i BNP pc 2000-2019 (%)",
-          "Logaritmisk vekstrate for BNP pc (2019)",
+labs_2 <- c("Gjennomsnitlig årlig vekstrate i BNP pc 2000-2019 (%)",
+          "Logaritmisk vekstrate for BNP per capita (2019)",
+          "Logaritmisk vekstrate for BNP per capita (2000)",
           "Gjennomsnittlig netto-sparing",
           "Gjennomsnittlig humankapital (år på skole)",
           "Gjennomsnittlig årlig vekstrate (negativ) i naturressurser",
           "Gjennomsnittlig årlig vekstrate i investeringer",
           "Gjennomsnittlig vekstrate i arbeidskraft",
-          "Gjennomsnittlig årlig befolkningsvekst (%)",
-          "Gjennomsnittlig årlig vekstrate i eksport",
-          "Logaritmisk vekstrate for BNP pc (2000)") 
+          "Gjennomsnittlig årlig befolkningsvekst (%)") 
 
 # Lag tabellen
-st(table_df_no_outliers, labels=labs, title = "Summary statistics without outliers",
+st(table_df_no_outliers, labels=labs_2, title = "Summary statistics without outliers",
    summ = list(
      c('notNA(x)','mean(x)','sd(x)','min(x)','max(x)'),
      c('notNA(x)','mean(x)')
@@ -364,57 +429,100 @@ st(table_df_no_outliers, labels=labs, title = "Summary statistics without outlie
 
 df_growth2019_n <- df_growth2019[complete.cases(df_growth2019$region,df_growth2019$poptot, df_growth2019$avg_p, df_growth2019$gdppc),] #Her tar jeg vekk land som mangler observasjoner. Dette gjør grafen penere.  
 
-plot1 <- ggplot(df_growth2019_n, aes(avg_p, ln_gdppc, na.rm = T)) +
+df_growth2019_n %>% 
+  ggplot(aes(avg_p, ln_gdppc, na.rm = T)) +
   xlab("Befolkningsvekst") + # Beskrivelse for x-akselen
   ylab("BNP per innbygger 2019") + # Beskrivelse for y-akselen
   theme_classic(base_size = 14) + # Tekststørrelse
   geom_point(aes(size = poptot, color = region), alpha = 0.8) + # Størrelse (farge) på bobblene avhenger befolkningsstørrelse (region)
+  geom_smooth(method = "lm", se = F) +
   scale_size_area(guide = "none", max_size = 14) + #Ta vekk legend for befolkningsstørrelse
   scale_y_continuous(trans = 'log2', breaks=c(0)) + # logaritmere BNP pc og hvilke "ticks" som skal vises
   scale_x_continuous(breaks=c(seq(-1,5,0.5))) #  "ticks" som skal vises på x-akselen
-plot1
 
-
-plot2 <- ggplot(df_growth2019_n, aes(avg_nsy, ln_gdppc, na.rm = T)) +
+df_growth2019_n %>% 
+  ggplot(aes(avg_nsy, ln_gdppc, na.rm = T)) +
   xlab("Netto-sparing") + 
   ylab("BNP per innbygger 2019") + 
   theme_classic(base_size = 14) + 
   geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  geom_smooth(method = "lm", se = F) +
   scale_size_area(guide = "none", max_size = 14) + 
   scale_y_continuous(trans = 'log2', breaks=c(0)) + 
   scale_x_continuous(breaks=c(seq(-10,30,5)))   
-plot2
 
-
-plot3 <- ggplot(df_growth2019_n, aes(avg_educ, ln_gdppc, na.rm = T)) +
+df_growth2019_n %>% 
+  ggplot(aes(avg_educ, ln_gdppc, na.rm = T)) +
   xlab("Humankapital (år på skolen)") + 
   ylab("BNP per innbygger 2019") + 
   theme_classic(base_size = 14) + 
   geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  geom_smooth(method = "lm", se = F) +
   scale_size_area(guide = "none", max_size = 14) + 
   scale_y_continuous(trans = 'log2', breaks=c(0)) + 
   scale_x_continuous(breaks=c(seq(0,15,3))) 
-plot3
 
 
-plot4 <- ggplot(df_growth2019_n, aes(avg_nsy, avg_gdpgrowth, na.rm = T)) +
+df_growth2019_n %>% 
+  ggplot(aes(avg_nsy, avg_gdpgrowth, na.rm = T)) +
   xlab("Netto-sparing") + 
   ylab("Årlig vesktrate i BNP") + 
   theme_classic(base_size = 14) + 
   geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  geom_smooth(method = "lm", se = F) +
   scale_size_area(guide = "none", max_size = 14) + 
   scale_y_continuous(trans = 'log2', breaks=c(0)) + 
   scale_x_continuous(breaks=c(seq(-10,30,5))) 
-plot4
 
 
-plot5 <- ggplot(df_growth2019_n, aes(avg_educ, avg_gdpgrowth, na.rm = T)) +
+df_growth2019_n %>% 
+  ggplot(aes(avg_educ, avg_gdpgrowth, na.rm = T)) +
   xlab("Humankapital (år på skolen)") + 
   ylab("Årlig vesktrate i BNP") + 
   theme_classic(base_size = 14) + 
   geom_point(aes(size = poptot, color = region), alpha = 0.8) + 
+  geom_smooth(method = "lm", se = F) +
   scale_size_area(guide = "none", max_size = 14) + 
   scale_y_continuous(trans = 'log2', breaks=c(30)) 
-plot5
+
+
+
+
+
+
+
+# finne GNI
+
+
+
+WDIsearch(string = "GNI", field = "name", short = TRUE, cache = NULL)
+
+
+
+# Velg startår = 2000 og sluttår = 2019
+df_GNI0<-WDI(
+  country = "all",
+  indicator = c('poptot'="SP.POP.TOTL", 'GNI'="NY.GNP.MKTP.PP.CD" ),  
+  start = 2000,
+  end = 2000,
+  extra = TRUE, # det å sette "extra = TRUE" fører til at vi laster inn ekstra informasjon som vi kan benytte seinere (f.eks. variabelen "region")
+  cache = NULL,
+  latest = NULL,
+  language = "en"
+)
+
+
+
+rm(df_GNI0)
+
+
+df_GNI0 <- df_GNI0 %>% 
+  mutate("GNI_per_capita" =  GNI/ poptot)
+
+
+
+
+
+
 
 
