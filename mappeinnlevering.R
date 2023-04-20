@@ -12,6 +12,7 @@ library(sjPlot)
 library(sjmisc)
 library(sjlabelled)
 
+
 # Kode for a kunne bruke norske bokstaver
 Sys.setlocale(locale="no_NO")
 
@@ -232,6 +233,28 @@ df_all <- left_join(df, df_rest, by=c("country", "region", "income", "iso2c", "i
 
 # korrigerer feilmelding angående kolonnen til poptot
 df_all <- df_all %>%  rename_at("poptot.x", ~ "poptot")
+
+
+test <- df_rest %>% 
+  filter(year == "2000") %>% 
+  mutate(gni_pc_ppp_2000 = gni_ppp / poptot)
+
+test <- test[complete.cases(test$iso3c, test$gni_pc_ppp_2000, test$gi, test$gx, test$nry, test$income),]  %>%  arrange(iso3c, year)
+
+test <- test %>% 
+  filter(row_number() != c(6, 7, 10, 13, 14, 15, 18, 20, 23, 28, 34, 36, 37, 49, 51, 52, 55, 57, 61, 63, 69, 71, 79, 83, 84, 88, 96, 97, 104, 105, 109, 115, 116))
+
+
+df_all <- left_join(df, test, by = c("country", "region", "income", "iso2c", "iso3c", "year"))
+
+
+
+
+aaa <- cbind(df, test, userID = test$gni_pc_ppp_2000)
+
+list(
+  "country" = setdiff(test$country, df_all$country)
+)
 
 # Lag en rekkefølge til variablene slik at det er enklere å få en oversikt over datamaterialet.
 col_order <- c("country",  "region", "income", "iso3c", "iso2c", "year", "gdppc", "gdppc0", "poptot", "p", "avg_n", "avg_nsy", "nry", "gi", "gx", "avg_educ", "gni_ppp")
